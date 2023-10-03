@@ -16,12 +16,11 @@ func main() {
 
 	extraLap := flag.Int("l", 2, "add this extra laps to the fuel calculation")
 	flag.Parse()
-	fmt.Printf("extra laps: %v sec\n", *extraLap)
 
 	accChan := make(chan acc.AccData)
 	defer close(accChan)
 
-	m := fuel.NewFuelModel()
+	m := fuel.NewFuelModel(*extraLap)
 
 	// start acc update go function
 

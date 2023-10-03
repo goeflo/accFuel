@@ -63,52 +63,54 @@ type AccMsg struct {
 }
 
 type FuelModel struct {
-	help help.Model
-	data *acc.AccData
+	help     help.Model
+	extraLap int
+	data     *acc.AccData
 }
 
-func NewFuelModel() *FuelModel {
+func NewFuelModel(extraLap int) *FuelModel {
 	help := help.New()
 	help.ShowAll = true
 
 	return &FuelModel{
-		help: help,
+		help:     help,
+		extraLap: extraLap,
 	}
 }
 
 func (m *FuelModel) View() string {
 
+	//fmt.Printf("view model %+v\n", m.data)
 	doc := strings.Builder{}
 	w := lipgloss.Width
+
+	// some default values until acc is running
+	fuelUntilEnd := "123.45"
+	boxOpen := "67"
+	track := "Hometrack"
+	sessionState := "unknwon"
+
+	// reset default values with current acc data
+	if m.data != nil {
+		fuelUntilEnd = strconv.Itoa(m.data.SessionLiter)
+		boxOpen = strconv.Itoa(m.data.BoxLap)
+		track = m.data.Track
+		sessionState = m.data.SessionType.String()
+	}
 
 	// main window
 
 	{
-
-		// some default values until acc is running
-		fuelUntilEnd := "123.45"
-		boxOpen := "67"
-		//accVersion := "0.0"
-		track := "Hometrack"
-
-		// reset default values with current acc data
-		if m.data != nil {
-			fuelUntilEnd = "1234"
-			boxOpen = strconv.Itoa(m.data.BoxLap)
-			//accVersion = m.data.AccVersion
-			track = m.data.Track
-		}
-
-		doc.WriteString(headerStyle.Width(mainWindowWidth).Render(fmt.Sprintf("tack: %v", track)))
+		doc.WriteString(headerStyle.Width(mainWindowWidth).Render(fmt.Sprintf("tack ................ %v", track)))
 		doc.WriteString("\n")
 
-		sessionEnd := fuelLineStyle.Render("until session end: ")
-		between := fuelLineStyle.Render("  box opens in: ")
+		sessionEnd := fuelLineStyle.Render("until session end ... ")
+		between := fuelLineStyle.Render("   box opens in ... ")
 		laps := fuelLineStyle.Render(" laps")
 		boxOpenVal := fuelLineStyle.Render(boxOpen)
 
 		literUntilEnd := fuelLineStyle.Copy().
-			Width(width - w(sessionEnd) - w(between) - w(boxOpenVal) - w(laps) - 10).
+			Width(width - w(sessionEnd) - w(between) - w(boxOpenVal) - w(laps) - 7).
 			Render(fuelUntilEnd + " liter ")
 
 		fuelText := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -119,8 +121,7 @@ func (m *FuelModel) View() string {
 			laps,
 		)
 
-		fuelText += "\n"
-		fuelText += "extra laps: 5"
+		fuelText += fmt.Sprintf("\nextra laps .......... %v", m.extraLap)
 
 		doc.WriteString(windowStyle.Width(mainWindowWidth).Render(fuelText))
 		doc.WriteString("\n")
@@ -129,11 +130,11 @@ func (m *FuelModel) View() string {
 	// status bar
 
 	{
-		statusKey := statusStyle.Render("STATUS")
-		clock := clockStyle.Render(time.Now().Format("15:04.05"))
+		statusKey := statusStyle.Render("session state")
+		clock := clockStyle.Render(time.Now().Format("15:04:05"))
 		statusVal := statusText.Copy().
 			Width(width - w(statusKey) - w(clock)).
-			Render("Race")
+			Render(sessionState)
 
 		bar := lipgloss.JoinHorizontal(lipgloss.Top,
 			statusKey,
@@ -167,8 +168,13 @@ func (m *FuelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help.ShowAll = !m.help.ShowAll
 			return m, nil
 		case key.Matches(msg, keys.Up):
+			m.extraLap++
 			return m, nil
 		case key.Matches(msg, keys.Down):
+			m.extraLap--
+			if m.extraLap < 0 {
+				m.extraLap = 0
+			}
 			return m, nil
 		case key.Matches(msg, keys.Quit):
 			return m, tea.Quit
